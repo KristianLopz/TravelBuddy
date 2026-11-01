@@ -1,6 +1,5 @@
 const { Destination } = require('../models/Destination');
 const { User } = require('../models/User');
-const { Op } = require('sequelize');
 
 function parsePositiveNumber(value, fallback = 0) {
   const parsed = Number(value);
@@ -10,9 +9,9 @@ function parsePositiveNumber(value, fallback = 0) {
 // Lista geral de destinos ativos: usada para a tela mostrar TODOS os destinos.
 const getAllDestinations = async (req, res) => {
   try {
-    const destinations = await Destination.findAll({
+    const destinations = await Destination.findMany({
       where: { active: true },
-      order: [['estimated_cost', 'ASC'], ['name', 'ASC']],
+      orderBy: [{ estimated_cost: 'asc' }, { name: 'asc' }],
     });
 
     return res.json({ total: destinations.length, destinations });
@@ -27,7 +26,7 @@ const getSuggestions = async (req, res) => {
   const userId = req.user.id;
 
   try {
-    const user = await User.findByPk(userId);
+    const user = await User.findUnique({ where: { id: userId } });
     const budget = parsePositiveNumber(req.query.budget, parsePositiveNumber(user?.last_budget));
     const numPeople = parsePositiveNumber(req.query.num_people, 1);
 
@@ -46,12 +45,12 @@ const getSuggestions = async (req, res) => {
 
     const maxCostPerPerson = budget / numPeople;
 
-    const destinations = await Destination.findAll({
+    const destinations = await Destination.findMany({
       where: {
-        estimated_cost: { [Op.lte]: maxCostPerPerson },
+        estimated_cost: { lte: maxCostPerPerson },
         active: true,
       },
-      order: [['estimated_cost', 'ASC'], ['name', 'ASC']],
+      orderBy: [{ estimated_cost: 'asc' }, { name: 'asc' }],
     });
 
     return res.json({
@@ -75,7 +74,7 @@ const getDestinationById = async (req, res) => {
   const { id } = req.params;
 
   try {
-    const destination = await Destination.findOne({ where: { id, active: true } });
+    const destination = await Destination.findFirst({ where: { id: Number(id), active: true } });
     if (!destination) {
       return res.status(404).json({ error: 'Destino não encontrado.' });
     }
@@ -100,7 +99,10 @@ const saveBudget = async (req, res) => {
   }
 
   try {
-    await req.user.update({ last_budget: parsedBudget });
+    await User.update({
+      where: { id: req.user.id },
+      data: { last_budget: parsedBudget }
+    });
 
     return res.json({
       message: 'Orçamento salvo com sucesso!',

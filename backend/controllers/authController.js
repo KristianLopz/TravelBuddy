@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const { User } = require('../models/User');
+const bcrypt = require('bcryptjs');
 const { body, validationResult } = require('express-validator');
 const emailService = require('../services/emailService');
 
@@ -24,13 +25,14 @@ const register = async (req, res) => {
   const { name, email, password } = req.body;
 
   try {
-    const existing = await User.findOne({ where: { email } });
+    const existing = await User.findUnique({ where: { email } });
     if (existing) {
       // CU01 FA1 — e-mail já cadastrado
       return res.status(409).json({ error: 'E-mail já está em uso. Informe outro.' });
     }
 
-    const user = await User.create({ name, email, password });
+    const hashedPassword = await bcrypt.hash(password, 12);
+    const user = await User.create({ data: { name, email, password: hashedPassword } });
 
     // Envia e-mail de boas-vindas (CU01 passo 5)
     await emailService.sendWelcomeEmail(user.email, user.name);
@@ -57,13 +59,13 @@ const login = async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    const user = await User.findOne({ where: { email } });
+    const user = await User.findUnique({ where: { email } });
     if (!user) {
       // CU02 FA2 — conta inexistente
       return res.status(404).json({ error: 'Conta não encontrada. Realize o cadastro.' });
     }
 
-    const valid = await user.checkPassword(password);
+    const valid = await bcrypt.compare(password, user.password);
     if (!valid) {
       // CU02 FA1 — credenciais inválidas
       return res.status(401).json({ error: 'Credenciais inválidas. Tente novamente.' });
@@ -95,7 +97,7 @@ const forgotPassword = async (req, res) => {
   if (!email) return res.status(422).json({ error: 'E-mail obrigatório.' });
 
   try {
-    const user = await User.findOne({ where: { email } });
+    const user = await User.findUnique({ where: { email } });
     // Resposta genérica por segurança (não revela se e-mail existe)
     if (user) {
       const resetToken = jwt.sign({ id: user.id, purpose: 'reset' }, process.env.JWT_SECRET, { expiresIn: '1h' });

@@ -11,19 +11,26 @@ function toPositiveInt(value) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
-const destinationInclude = [{
-  model: Destination,
-  attributes: [
-    'id',
-    'name',
-    'country',
-    'state',
-    'estimated_cost',
-    'image_url',
-    'climate',
-    'best_season'
-  ]
-}];
+const destinationInclude = {
+  destination: {
+    select: {
+      id: true,
+      name: true,
+      country: true,
+      state: true,
+      estimated_cost: true,
+      image_url: true,
+      climate: true,
+      best_season: true
+    }
+  }
+};
+
+function formatFavorite(favorite) {
+  if (!favorite) return favorite;
+  const { destination, ...data } = favorite;
+  return { ...data, Destination: destination };
+}
 
 // ---- CU07 — Salvar Viagem Favorita (RF07) ----
 const addFavorite = async (req, res) => {
@@ -35,14 +42,15 @@ const addFavorite = async (req, res) => {
   }
 
   try {
-    const destination = await Destination.findByPk(destination_id);
+    const destinationId = Number(destination_id);
+    const destination = await Destination.findUnique({ where: { id: destinationId } });
     if (!destination) {
       return res.status(404).json({ error: 'Destino não encontrado.' });
     }
 
     const favoritePayload = {
       user_id: userId,
-      destination_id,
+      destination_id: destinationId,
       notes: notes || '',
       budget_value: toPositiveNumber(budget_value),
       budget_days: toPositiveInt(budget_days),
@@ -50,23 +58,31 @@ const addFavorite = async (req, res) => {
     };
 
     // CU07 FA1 — item já favoritado: atualiza os dados de orçamento para manter sincronizado.
-    const existing = await Favorite.findOne({ where: { user_id: userId, destination_id } });
+    const existing = await Favorite.findFirst({
+      where: { user_id: userId, destination_id: destinationId }
+    });
     if (existing) {
-      await existing.update(favoritePayload);
-      const favorite = await Favorite.findByPk(existing.id, { include: destinationInclude });
+      await Favorite.update({ where: { id: existing.id }, data: favoritePayload });
+      const favorite = await Favorite.findUnique({
+        where: { id: existing.id },
+        include: destinationInclude
+      });
       return res.json({
         message: 'Favorito atualizado com os dados do orçamento atual.',
-        favorite,
+        favorite: formatFavorite(favorite),
         already_favorite: true
       });
     }
 
-    const created = await Favorite.create(favoritePayload);
-    const favorite = await Favorite.findByPk(created.id, { include: destinationInclude });
+    const created = await Favorite.create({ data: favoritePayload });
+    const favorite = await Favorite.findUnique({
+      where: { id: created.id },
+      include: destinationInclude
+    });
 
     return res.status(201).json({
       message: 'Viagem adicionada aos favoritos!',
-      favorite,
+      favorite: formatFavorite(favorite),
       already_favorite: false
     });
   } catch (err) {
@@ -78,13 +94,13 @@ const addFavorite = async (req, res) => {
 // Lista favoritos do usuário
 const listFavorites = async (req, res) => {
   try {
-    const favorites = await Favorite.findAll({
+    const favorites = await Favorite.findMany({
       where: { user_id: req.user.id },
       include: destinationInclude,
-      order: [['createdAt', 'DESC']]
+      orderBy: { createdAt: 'desc' }
     });
 
-    return res.json({ total: favorites.length, favorites });
+    return res.json({ total: favorites.length, favorites: favorites.map(formatFavorite) });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: 'Erro ao listar favoritos.' });
@@ -95,12 +111,12 @@ const checkFavorite = async (req, res) => {
   const { destination_id } = req.params;
 
   try {
-    const favorite = await Favorite.findOne({
-      where: { user_id: req.user.id, destination_id },
+    const favorite = await Favorite.findFirst({
+      where: { user_id: req.user.id, destination_id: Number(destination_id) },
       include: destinationInclude
     });
 
-    return res.json({ favorited: !!favorite, favorite });
+    return res.json({ favorited: !!favorite, favorite: formatFavorite(favorite) });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: 'Erro ao verificar favorito.' });
@@ -112,10 +128,12 @@ const removeFavorite = async (req, res) => {
   const { id } = req.params;
 
   try {
-    const favorite = await Favorite.findOne({ where: { id, user_id: req.user.id } });
+    const favorite = await Favorite.findFirst({
+      where: { id: Number(id), user_id: req.user.id }
+    });
     if (!favorite) return res.status(404).json({ error: 'Favorito não encontrado.' });
 
-    await favorite.destroy();
+    await Favorite.delete({ where: { id: favorite.id } });
     return res.json({ message: 'Favorito removido com sucesso.' });
   } catch (err) {
     console.error(err);
@@ -128,10 +146,12 @@ const removeFavoriteByDestination = async (req, res) => {
   const { destination_id } = req.params;
 
   try {
-    const favorite = await Favorite.findOne({ where: { destination_id, user_id: req.user.id } });
+    const favorite = await Favorite.findFirst({
+      where: { destination_id: Number(destination_id), user_id: req.user.id }
+    });
     if (!favorite) return res.status(404).json({ error: 'Favorito não encontrado.' });
 
-    await favorite.destroy();
+    await Favorite.delete({ where: { id: favorite.id } });
     return res.json({ message: 'Favorito removido com sucesso.' });
   } catch (err) {
     console.error(err);

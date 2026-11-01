@@ -137,16 +137,21 @@ const seedDestinations = [
 
 async function ensureSeedDestinations() {
   for (const data of seedDestinations) {
-    const existing = await Destination.findOne({ where: { name: data.name, country: data.country } });
+    const existing = await Destination.findFirst({
+      where: { name: data.name, country: data.country }
+    });
 
     if (!existing) {
-      await Destination.create(data);
+      await Destination.create({ data });
       continue;
     }
 
-    await existing.update({
-      ...data,
-      active: true,
+    await Destination.update({
+      where: { id: existing.id },
+      data: {
+        ...data,
+        active: true
+      }
     });
   }
 }

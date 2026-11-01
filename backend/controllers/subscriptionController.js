@@ -43,7 +43,10 @@ const subscribe = async (req, res) => {
       expiresAt.setDate(expiresAt.getDate() + 30);
     }
 
-    await user.update({ plan: 'premium', subscription_expires_at: expiresAt });
+    await User.update({
+      where: { id: user.id },
+      data: { plan: 'premium', subscription_expires_at: expiresAt }
+    });
     await emailService.sendSubscriptionConfirmation(user.email, user.name, expiresAt);
 
     return res.json({
@@ -71,7 +74,10 @@ const cancel = async (req, res) => {
 
   try {
     // Mantém a data de expiração como referência do período já pago.
-    await user.update({ plan: 'free' });
+    await User.update({
+      where: { id: user.id },
+      data: { plan: 'free' }
+    });
     await emailService.sendCancellationEmail(user.email, user.name, user.subscription_expires_at || new Date());
 
     return res.json({
@@ -86,7 +92,7 @@ const cancel = async (req, res) => {
 
 // Consultar status da assinatura
 const status = async (req, res) => {
-  const user = await User.findByPk(req.user.id);
+  const user = await User.findUnique({ where: { id: req.user.id } });
 
   return res.json({
     plan: user.plan,

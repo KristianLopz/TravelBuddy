@@ -1,0 +1,96 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  user
+  admin
+
+  @@map("user_role")
+}
+
+enum UserPlan {
+  free
+  premium
+
+  @@map("user_plan")
+}
+
+model User {
+  id                      Int         @id @default(autoincrement())
+  name                    String      @db.VarChar(100)
+  email                   String      @unique @db.VarChar(150)
+  password                String      @db.VarChar(255)
+  role                    UserRole?   @default(user)
+  plan                    UserPlan?   @default(free)
+  last_budget             Decimal?    @db.Decimal(10, 2)
+  subscription_expires_at DateTime?   @db.DateTime(0)
+  createdAt               DateTime    @default(now()) @db.DateTime(0)
+  updatedAt               DateTime    @updatedAt @db.DateTime(0)
+  favorites               Favorite[]
+  itineraries             Itinerary[]
+
+  @@map("users")
+}
+
+model Destination {
+  id               Int         @id @default(autoincrement())
+  name             String      @db.VarChar(100)
+  country          String      @db.VarChar(100)
+  state            String?     @db.VarChar(100)
+  description      String?     @db.Text
+  estimated_cost   Decimal     @db.Decimal(10, 2)
+  climate          String?     @db.VarChar(100)
+  best_season      String?     @db.VarChar(100)
+  image_url        String?     @db.VarChar(500)
+  tourist_spots    Json?
+  active           Boolean?    @default(true)
+  createdAt        DateTime    @default(now()) @db.DateTime(0)
+  updatedAt        DateTime    @updatedAt @db.DateTime(0)
+  favorites        Favorite[]
+  itineraries      Itinerary[]
+
+  @@map("destinations")
+}
+
+model Favorite {
+  id             Int         @id @default(autoincrement())
+  user_id        Int
+  destination_id Int
+  notes          String?     @db.Text
+  budget_value   Decimal?    @db.Decimal(10, 2)
+  budget_days    Int?
+  budget_people  Int?
+  createdAt      DateTime    @default(now()) @db.DateTime(0)
+  updatedAt      DateTime    @updatedAt @db.DateTime(0)
+  user           User        @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  destination    Destination @relation(fields: [destination_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([user_id, destination_id], map: "unique_favorite")
+  @@index([destination_id], map: "destination_id")
+  @@map("favorites")
+}
+
+model Itinerary {
+  id                   Int         @id @default(autoincrement())
+  user_id              Int
+  destination_id       Int
+  duration_days        Int
+  num_people           Int?        @default(1)
+  budget               Decimal     @db.Decimal(10, 2)
+  activities           Json?
+  total_estimated_cost Decimal?    @db.Decimal(10, 2)
+  createdAt            DateTime    @default(now()) @db.DateTime(0)
+  updatedAt            DateTime    @updatedAt @db.DateTime(0)
+  user                 User        @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  destination          Destination @relation(fields: [destination_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([user_id, destination_id, duration_days, num_people], map: "unique_itinerary")
+  @@index([destination_id], map: "destination_id")
+  @@map("itineraries")
+}

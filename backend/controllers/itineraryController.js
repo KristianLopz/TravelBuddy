@@ -1,6 +1,11 @@
-const { Op } = require('sequelize');
 const { Itinerary } = require('../models/Relations');
 const { Destination } = require('../models/Destination');
+
+const destinationInclude = {
+  destination: {
+    select: { id: true, name: true, country: true, image_url: true }
+  }
+};
 
 function parseJsonMaybe(value, fallback = []) {
   if (Array.isArray(value)) return value;
@@ -48,7 +53,7 @@ const generateItinerary = async (req, res) => {
   }
 
   try {
-    const destination = await Destination.findByPk(destinationId);
+    const destination = await Destination.findUnique({ where: { id: destinationId } });
     if (!destination) return res.status(404).json({ error: 'Destino não encontrado.' });
 
     const spots = parseJsonMaybe(destination.tourist_spots, []);
@@ -81,42 +86,47 @@ const generateItinerary = async (req, res) => {
 
     // Evita criar o mesmo roteiro várias vezes quando o React roda duas vezes no modo de desenvolvimento
     // ou quando o usuário clica mais de uma vez no botão de gerar roteiro.
-    let itinerary = await Itinerary.findOne({
+    let itinerary = await Itinerary.findFirst({
       where: {
         user_id: userId,
         destination_id: destinationId,
         duration_days: days,
         num_people: people
       },
-      order: [['updatedAt', 'DESC']]
+      orderBy: { updatedAt: 'desc' }
     });
 
     if (itinerary) {
-      await itinerary.update({
-        budget: finalBudget,
-        activities,
-        total_estimated_cost: totalCost
+      itinerary = await Itinerary.update({
+        where: { id: itinerary.id },
+        data: {
+          budget: finalBudget,
+          activities,
+          total_estimated_cost: totalCost
+        }
       });
 
       // Remove duplicatas antigas com os mesmos dados, caso já tenham sido criadas antes da correção.
-      await Itinerary.destroy({
+      await Itinerary.deleteMany({
         where: {
           user_id: userId,
           destination_id: destinationId,
           duration_days: days,
           num_people: people,
-          id: { [Op.ne]: itinerary.id }
+          id: { not: itinerary.id }
         }
       });
     } else {
       itinerary = await Itinerary.create({
-        user_id: userId,
-        destination_id: destinationId,
-        duration_days: days,
-        num_people: people,
-        budget: finalBudget,
-        activities,
-        total_estimated_cost: totalCost
+        data: {
+          user_id: userId,
+          destination_id: destinationId,
+          duration_days: days,
+          num_people: people,
+          budget: finalBudget,
+          activities,
+          total_estimated_cost: totalCost
+        }
       });
     }
 
@@ -133,10 +143,10 @@ const generateItinerary = async (req, res) => {
 // Lista roteiros do usuário autenticado
 const listItineraries = async (req, res) => {
   try {
-    const itineraries = await Itinerary.findAll({
+    const itineraries = await Itinerary.findMany({
       where: { user_id: req.user.id },
-      include: [{ model: Destination, attributes: ['id', 'name', 'country', 'image_url'] }],
-      order: [['updatedAt', 'DESC'], ['createdAt', 'DESC']]
+      include: destinationInclude,
+      orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }]
     });
 
     // Não deixa aparecer o mesmo roteiro repetido na tela de Favoritos.
@@ -161,10 +171,17 @@ const listItineraries = async (req, res) => {
     }
 
     if (duplicatesToRemove.length > 0) {
-      await Itinerary.destroy({ where: { id: duplicatesToRemove, user_id: req.user.id } });
+      await Itinerary.deleteMany({
+        where: { id: { in: duplicatesToRemove }, user_id: req.user.id }
+      });
     }
 
-    return res.json({ itineraries: uniqueItineraries });
+    return res.json({
+      itineraries: uniqueItineraries.map((itinerary) => {
+        const { destination, ...data } = itinerary;
+        return { ...data, Destination: destination };
+      })
+    });
   } catch (err) {
     console.error('Erro ao listar roteiros:', err);
     return res.status(500).json({ error: 'Erro ao listar roteiros.' });
@@ -181,10 +198,10 @@ const getLatestItineraryByDestination = async (req, res) => {
   }
 
   try {
-    const itinerary = await Itinerary.findOne({
+    const itinerary = await Itinerary.findFirst({
       where: { user_id: req.user.id, destination_id: destinationId },
-      include: [{ model: Destination, attributes: ['id', 'name', 'country', 'image_url'] }],
-      order: [['updatedAt', 'DESC'], ['createdAt', 'DESC']]
+      include: destinationInclude,
+      orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }]
     });
 
     if (!itinerary) {
@@ -195,7 +212,7 @@ const getLatestItineraryByDestination = async (req, res) => {
       itinerary: {
         id: itinerary.id,
         destination_id: itinerary.destination_id,
-        destination: itinerary.Destination?.name || 'Destino',
+        destination: itinerary.destination?.name || 'Destino',
         duration_days: Number(itinerary.duration_days || 1),
         num_people: Number(itinerary.num_people || 1),
         budget: Number(itinerary.budget || 0),
@@ -210,4 +227,3 @@ const getLatestItineraryByDestination = async (req, res) => {
 };
 
 module.exports = { generateItinerary, listItineraries, getLatestItineraryByDestination };
-

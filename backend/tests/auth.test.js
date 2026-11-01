@@ -1,7 +1,7 @@
 const request = require('supertest');
-const app = require('../server');
+const { app } = require('../server');
 const { User } = require('../models/User');
-const sequelize = require('../config/database');
+const prisma = require('../config/database');
 
 // ====================================================
 // Testes Unitários — CU01 e CU02 (Auth)
@@ -9,11 +9,13 @@ const sequelize = require('../config/database');
 // ====================================================
 
 beforeAll(async () => {
-  await sequelize.sync({ force: true }); // Recria tabelas para teste
+  await prisma.$connect();
+  await User.deleteMany({ where: { email: 'teste@travelbuddy.com' } });
 });
 
 afterAll(async () => {
-  await sequelize.close();
+  await User.deleteMany({ where: { email: 'teste@travelbuddy.com' } });
+  await prisma.$disconnect();
 });
 
 // --- CU01 — Cadastrar Usuário ---

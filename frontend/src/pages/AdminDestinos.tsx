@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { api } from '../services/api';
+import { useAuth } from '../hooks/useAuth';
 
 interface Destino {
   id: number;
@@ -10,11 +12,53 @@ interface Destino {
   clima: string;
   melhorEpoca: string;
   pontosTuristicos: string;
+  ativo: boolean;
+}
+
+interface ApiDestino {
+  id: number;
+  name: string;
+  country: string;
+  state: string | null;
+  estimated_cost: number | string;
+  climate: string | null;
+  best_season: string | null;
+  tourist_spots: string[] | string | null;
+  active: boolean | null;
+}
+
+function converterDestino(destino: ApiDestino): Destino {
+  let spots: string[] = [];
+  if (Array.isArray(destino.tourist_spots)) {
+    spots = destino.tourist_spots.map(String);
+  } else if (typeof destino.tourist_spots === 'string') {
+    try {
+      const parsed: unknown = JSON.parse(destino.tourist_spots);
+      spots = Array.isArray(parsed) ? parsed.map(String) : [destino.tourist_spots];
+    } catch {
+      spots = [destino.tourist_spots];
+    }
+  }
+
+  return {
+    id: destino.id,
+    nome: destino.name,
+    pais: destino.country,
+    estado: destino.state || '',
+    custoMedio: Number(destino.estimated_cost),
+    clima: destino.climate || '',
+    melhorEpoca: destino.best_season || '',
+    pontosTuristicos: spots.join(', '),
+    ativo: destino.active ?? true
+  };
 }
 
 export function AdminDestinos() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [destinos, setDestinos] = useState<Destino[]>([]);
+  const [erro, setErro] = useState('');
+  const [carregando, setCarregando] = useState(true);
   const [modoEdicao, setModoEdicao] = useState(false);
   const [destinoEditando, setDestinoEditando] = useState<Destino | null>(null);
   const [formData, setFormData] = useState({
@@ -28,41 +72,67 @@ export function AdminDestinos() {
   });
 
   useEffect(() => {
-    const destinosMock: Destino[] = [
-      { id: 1, nome: 'Praia do Rosa', pais: 'Brasil', estado: 'SC', custoMedio: 2500, clima: 'Tropical', melhorEpoca: 'Dez-Mar', pontosTuristicos: 'Praia do Rosa, Mirante' },
-      { id: 2, nome: 'Chapada Diamantina', pais: 'Brasil', estado: 'BA', custoMedio: 1800, clima: 'Tropical de altitude', melhorEpoca: 'Abr-Set', pontosTuristicos: 'Cachoeira da Fumaça, Poço Azul' },
-      { id: 3, nome: 'Fernando de Noronha', pais: 'Brasil', estado: 'PE', custoMedio: 5000, clima: 'Tropical', melhorEpoca: 'Ago-Dez', pontosTuristicos: 'Baía do Sancho, Praia do Leão' }
-    ];
-
-    const destinosSalvos = localStorage.getItem('adminDestinos');
-    setDestinos(destinosSalvos ? JSON.parse(destinosSalvos) : destinosMock);
-  }, []);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (destinoEditando) {
-      const destinosAtualizados = destinos.map(d =>
-        d.id === destinoEditando.id
-          ? { ...destinoEditando, ...formData, custoMedio: parseFloat(formData.custoMedio) }
-          : d
-      );
-      setDestinos(destinosAtualizados);
-      localStorage.setItem('adminDestinos', JSON.stringify(destinosAtualizados));
-      alert('Destino atualizado com sucesso!');
-    } else {
-      const novoDestino: Destino = {
-        id: destinos.length + 1,
-        ...formData,
-        custoMedio: parseFloat(formData.custoMedio)
-      };
-      const novosDestinos = [...destinos, novoDestino];
-      setDestinos(novosDestinos);
-      localStorage.setItem('adminDestinos', JSON.stringify(novosDestinos));
-      alert('Destino cadastrado com sucesso!');
+    if (!user || user.role !== 'admin') {
+      navigate('/destinos', { replace: true });
+      return;
     }
 
-    resetForm();
+    void (async () => {
+      try {
+        const response = await api('/admin/destinations', {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || 'Não foi possível carregar os destinos.');
+        }
+        setDestinos((data.destinations as ApiDestino[]).map(converterDestino));
+      } catch (error) {
+        console.error(error);
+        setErro(error instanceof Error ? error.message : 'Erro ao carregar destinos.');
+      } finally {
+        setCarregando(false);
+      }
+    })();
+  }, [user, navigate]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErro('');
+
+    try {
+      const token = localStorage.getItem('token') || '';
+      const payload = {
+        name: formData.nome.trim(),
+        country: formData.pais.trim(),
+        state: formData.estado.trim(),
+        estimated_cost: Number(formData.custoMedio),
+        climate: formData.clima.trim(),
+        best_season: formData.melhorEpoca.trim(),
+        tourist_spots: formData.pontosTuristicos.split(',').map((spot) => spot.trim()).filter(Boolean)
+      };
+      const response = await api(
+        destinoEditando ? `/admin/destinations/${destinoEditando.id}` : '/admin/destinations',
+        {
+          method: destinoEditando ? 'PUT' : 'POST',
+          token,
+          body: JSON.stringify(payload)
+        }
+      );
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Não foi possível salvar o destino.');
+      }
+
+      const destinoSalvo = converterDestino(data.destination as ApiDestino);
+      setDestinos((current) => destinoEditando
+        ? current.map((destino) => destino.id === destinoSalvo.id ? destinoSalvo : destino)
+        : [...current, destinoSalvo]);
+      resetForm();
+    } catch (error) {
+      console.error(error);
+      setErro(error instanceof Error ? error.message : 'Erro ao salvar destino.');
+    }
   };
 
   const editarDestino = (destino: Destino) => {
@@ -79,12 +149,29 @@ export function AdminDestinos() {
     setModoEdicao(true);
   };
 
-  const excluirDestino = (id: number) => {
-    if (confirm('Tem certeza que deseja excluir este destino?')) {
-      const novosDestinos = destinos.filter(d => d.id !== id);
-      setDestinos(novosDestinos);
-      localStorage.setItem('adminDestinos', JSON.stringify(novosDestinos));
-      alert('Destino excluído com sucesso!');
+  const alternarDestino = async (destino: Destino) => {
+    setErro('');
+    try {
+      const response = await api(`/admin/destinations/${destino.id}/toggle`, {
+        method: 'PATCH',
+        token: localStorage.getItem('token') || ''
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Não foi possível alterar o status do destino.');
+      }
+      const atualizado = converterDestino(data.destination as ApiDestino);
+      setDestinos((current) => current.map((item) => item.id === atualizado.id ? atualizado : item));
+    } catch (error) {
+      console.error(error);
+      setErro(error instanceof Error ? error.message : 'Erro ao alterar status do destino.');
+    }
+  };
+
+  const excluirDestino = (destino: Destino) => {
+    const acao = destino.ativo ? 'desativar' : 'reativar';
+    if (confirm(`Tem certeza que deseja ${acao} este destino?`)) {
+      void alternarDestino(destino);
     }
   };
 
@@ -114,6 +201,11 @@ export function AdminDestinos() {
       </nav>
 
       <div className="max-w-7xl mx-auto p-6">
+        {erro && (
+          <div role="alert" className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-700">
+            {erro}
+          </div>
+        )}
         <div className="flex justify-between items-center mb-8">
           <div>
             <h2 className="text-3xl font-bold text-gray-800 mb-2">Gerenciar Destinos</h2>
@@ -254,16 +346,18 @@ export function AdminDestinos() {
                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Localização</th>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Custo Médio</th>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Clima</th>
+                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Status</th>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
               {destinos.map((destino) => (
-                <tr key={destino.id} className="hover:bg-gray-50">
+                <tr key={destino.id} className={`hover:bg-gray-50 ${destino.ativo ? '' : 'opacity-60'}`}>
                   <td className="px-6 py-4 text-gray-800 font-medium">{destino.nome}</td>
                   <td className="px-6 py-4 text-gray-600">{destino.estado}, {destino.pais}</td>
                   <td className="px-6 py-4 text-gray-800">R$ {destino.custoMedio.toLocaleString('pt-BR')}</td>
                   <td className="px-6 py-4 text-gray-600">{destino.clima}</td>
+                  <td className="px-6 py-4 text-gray-600">{destino.ativo ? 'Ativo' : 'Inativo'}</td>
                   <td className="px-6 py-4">
                     <div className="flex gap-2">
                       <button
@@ -273,10 +367,10 @@ export function AdminDestinos() {
                         Editar
                       </button>
                       <button
-                        onClick={() => excluirDestino(destino.id)}
+                        onClick={() => excluirDestino(destino)}
                         className="bg-red-100 text-red-600 px-3 py-1 rounded hover:bg-red-200"
                       >
-                        Excluir
+                        {destino.ativo ? 'Desativar' : 'Reativar'}
                       </button>
                     </div>
                   </td>
@@ -285,11 +379,12 @@ export function AdminDestinos() {
             </tbody>
           </table>
 
-          {destinos.length === 0 && (
+          {!carregando && destinos.length === 0 && (
             <div className="text-center py-12 text-gray-500">
               Nenhum destino cadastrado ainda
             </div>
           )}
+          {carregando && <div className="text-center py-12 text-gray-500">Carregando destinos...</div>}
         </div>
       </div>
     </div>

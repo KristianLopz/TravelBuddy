@@ -118,7 +118,7 @@ export default function Favoritos() {
             <div className="grid lg:grid-cols-[1.3fr_0.7fr] gap-8 items-center">
               <div>
                 <span className="inline-block bg-white/80 text-indigo-700 text-xs font-extrabold px-3 py-1 rounded-full mb-4 shadow-sm">
-                  CU07 — Favoritos
+                  Favoritos
                 </span>
 
                 <h1 className="text-4xl sm:text-5xl font-extrabold text-gray-900 mb-4">

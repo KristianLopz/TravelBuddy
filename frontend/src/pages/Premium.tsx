@@ -183,7 +183,7 @@ export function Premium() {
     }
   }
 
-  function CampoPagamento() {
+  function renderCampoPagamento() {
     if (formaPagamento === "pix") {
       return (
         <div className="space-y-4">
@@ -316,7 +316,7 @@ export function Premium() {
             <div className="grid lg:grid-cols-[1.2fr_0.8fr] gap-8 items-center">
               <div>
                 <span className="inline-block bg-white/15 border border-white/20 px-3 py-1 rounded-full text-xs font-extrabold mb-4">
-                  CU08 — Premium
+                  Premium
                 </span>
 
                 <h1 className="text-4xl sm:text-5xl font-extrabold mb-4">
@@ -530,7 +530,7 @@ export function Premium() {
                 </span>
               </div>
 
-              <CampoPagamento />
+              {renderCampoPagamento()}
 
               <div className="bg-indigo-50 p-5 rounded-2xl mt-6 border border-indigo-100">
                 <div className="flex justify-between mb-2">

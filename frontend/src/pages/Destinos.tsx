@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import MainLayout from "../layouts/MainLayout";
 import { api } from "../services/api";
@@ -123,24 +123,17 @@ export default function Destinos() {
   const [loading, setLoading] = useState(true);
   const [filtroPreco, setFiltroPreco] = useState("todos");
 
-  useEffect(() => {
-    carregarDestinos();
-  }, []);
-
-  async function carregarDestinos() {
+  const carregarDestinos = useCallback(async () => {
+    let budgetAtual: number | null = null;
+    let pessoasAtuais = 1;
     try {
-      setLoading(true);
-      setAviso("");
-      setMensagemCompatibilidade("");
-
       const token = localStorage.getItem("token") || "";
       const orcamentoSalvo = localStorage.getItem("travelbuddy_orcamento");
       const dadosOrcamento = orcamentoSalvo ? JSON.parse(orcamentoSalvo) : null;
       const budget = dadosOrcamento?.valor ? Number(dadosOrcamento.valor) : null;
       const numPeople = dadosOrcamento?.pessoas ? Number(dadosOrcamento.pessoas) : 1;
-
-      setOrcamento(budget);
-      setPessoas(numPeople || 1);
+      budgetAtual = budget;
+      pessoasAtuais = numPeople || 1;
 
       const destinosPadraoConvertidos = DESTINOS_PADRAO.map(converterDestino);
 
@@ -153,6 +146,11 @@ export default function Destinos() {
         navigate("/login");
         return;
       }
+
+      setAviso("");
+      setMensagemCompatibilidade("");
+      setOrcamento(budget);
+      setPessoas(numPeople || 1);
 
       const dataTodos = await lerJson(responseTodos);
 
@@ -207,12 +205,16 @@ export default function Destinos() {
       console.error(error);
       const destinosPadraoConvertidos = DESTINOS_PADRAO.map(converterDestino);
       setTodosDestinos(destinosPadraoConvertidos);
-      setDestinosCompativeis(filtrarPorOrcamento(destinosPadraoConvertidos, orcamento, pessoas));
+      setDestinosCompativeis(filtrarPorOrcamento(destinosPadraoConvertidos, budgetAtual, pessoasAtuais));
       setAviso("Não foi possível conectar ao servidor. Mostrando destinos padrão para a tela não ficar travada.");
     } finally {
       setLoading(false);
     }
-  }
+  }, [navigate]);
+
+  useEffect(() => {
+    void Promise.resolve().then(carregarDestinos);
+  }, [carregarDestinos]);
 
   const idsCompativeis = useMemo(
     () => new Set(destinosCompativeis.map((destino) => destino.id)),
@@ -301,7 +303,7 @@ export default function Destinos() {
             <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
               <div>
                 <span className="text-indigo-600 font-bold text-sm uppercase tracking-wide">
-                  CU04 — Sugestões de Destinos
+                  Sugestões de Destinos
                 </span>
                 <h1 className="text-4xl font-extrabold text-gray-900 mt-2 mb-3">
                   Destinos para você

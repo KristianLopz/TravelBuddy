@@ -13,7 +13,7 @@ const createDestination = async (req, res) => {
   if (!errors.isEmpty()) return res.status(422).json({ errors: errors.array() });
 
   try {
-    const destination = await Destination.create(req.body);
+    const destination = await Destination.create({ data: req.body });
     return res.status(201).json({ message: 'Destino cadastrado com sucesso!', destination });
   } catch (err) {
     return res.status(500).json({ error: 'Erro ao cadastrar destino.' });
@@ -24,11 +24,14 @@ const createDestination = async (req, res) => {
 const updateDestination = async (req, res) => {
   const { id } = req.params;
   try {
-    const destination = await Destination.findByPk(id);
+    const destination = await Destination.findUnique({ where: { id: Number(id) } });
     if (!destination) return res.status(404).json({ error: 'Destino não encontrado.' });
 
-    await destination.update(req.body);
-    return res.json({ message: 'Destino atualizado com sucesso!', destination });
+    const updatedDestination = await Destination.update({
+      where: { id: destination.id },
+      data: req.body
+    });
+    return res.json({ message: 'Destino atualizado com sucesso!', destination: updatedDestination });
   } catch (err) {
     return res.status(500).json({ error: 'Erro ao atualizar destino.' });
   }
@@ -37,7 +40,7 @@ const updateDestination = async (req, res) => {
 // Listar todos os destinos (admin vê inativos também)
 const listAllDestinations = async (req, res) => {
   try {
-    const destinations = await Destination.findAll({ order: [['name', 'ASC']] });
+    const destinations = await Destination.findMany({ orderBy: { name: 'asc' } });
     return res.json({ total: destinations.length, destinations });
   } catch (err) {
     return res.status(500).json({ error: 'Erro ao listar destinos.' });
@@ -48,13 +51,16 @@ const listAllDestinations = async (req, res) => {
 const toggleDestination = async (req, res) => {
   const { id } = req.params;
   try {
-    const destination = await Destination.findByPk(id);
+    const destination = await Destination.findUnique({ where: { id: Number(id) } });
     if (!destination) return res.status(404).json({ error: 'Destino não encontrado.' });
 
-    await destination.update({ active: !destination.active });
+    const updatedDestination = await Destination.update({
+      where: { id: destination.id },
+      data: { active: !destination.active }
+    });
     return res.json({
-      message: `Destino ${destination.active ? 'ativado' : 'desativado'} com sucesso.`,
-      destination
+      message: `Destino ${updatedDestination.active ? 'ativado' : 'desativado'} com sucesso.`,
+      destination: updatedDestination
     });
   } catch (err) {
     return res.status(500).json({ error: 'Erro ao alterar status do destino.' });

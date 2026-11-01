@@ -70,10 +70,6 @@ CREATE TABLE IF NOT EXISTS `favorites` (
   CONSTRAINT `favorites_ibfk_4` FOREIGN KEY (`destination_id`) REFERENCES `destinations` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
--- Copiando dados para a tabela travelbuddy.favorites: ~1 rows (aproximadamente)
-INSERT INTO `favorites` (`id`, `user_id`, `destination_id`, `notes`, `budget_value`, `budget_days`, `budget_people`, `createdAt`, `updatedAt`) VALUES
-	(1, 2, 11, 'Favoritado pela tela de detalhes do destino.', 3000.00, 4, 1, '2026-07-01 21:29:35', '2026-07-01 21:29:35');
-
 -- Copiando estrutura para tabela travelbuddy.itineraries
 CREATE TABLE IF NOT EXISTS `itineraries` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -111,11 +107,6 @@ CREATE TABLE IF NOT EXISTS `users` (
   UNIQUE KEY `email` (`email`),
   UNIQUE KEY `email_2` (`email`)
 ) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- Copiando dados para a tabela travelbuddy.users: ~2 rows (aproximadamente)
-INSERT INTO `users` (`id`, `name`, `email`, `password`, `role`, `plan`, `last_budget`, `subscription_expires_at`, `createdAt`, `updatedAt`) VALUES
-	(1, 'Administrador', 'admin@travelbuddy.com', '$2a$12$o1RO6RAzJDkhPrdMC8bp.ucvN/4orPsUq5etevyBq7am6oG079uui', 'admin', 'premium', NULL, NULL, '2026-07-01 18:19:23', '2026-07-01 21:25:18'),
-	(2, 'Washington', 'washington@gmail.com', '$2a$12$BZyvr1ZE0FhVhTcsYzMUDufjpqYJERE/K8nYPrBTTOsRogeMAoqMW', 'user', 'free', 3000.00, NULL, '2026-07-01 21:29:06', '2026-07-01 21:29:29');
 
 /*!40103 SET TIME_ZONE=IFNULL(@OLD_TIME_ZONE, 'system') */;
 /*!40101 SET SQL_MODE=IFNULL(@OLD_SQL_MODE, '') */;

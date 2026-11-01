@@ -26,7 +26,7 @@ function lerOrcamentoSalvo() {
     return orcamentoSalvo
       ? JSON.parse(orcamentoSalvo)
       : { valor: 0, dias: 3, pessoas: 1 };
-  } catch (_error) {
+  } catch {
     return { valor: 0, dias: 3, pessoas: 1 };
   }
 }
@@ -37,7 +37,7 @@ function normalizarAtividades(value: unknown): DiaRoteiro[] {
   if (typeof atividades === "string") {
     try {
       atividades = JSON.parse(atividades);
-    } catch (_error) {
+    } catch {
       return [];
     }
   }
@@ -173,7 +173,7 @@ export function Roteiro() {
 
           <div className="bg-white rounded-2xl shadow-xl p-8 mb-6 border border-gray-100">
             <span className="text-indigo-600 font-bold text-sm uppercase tracking-wide">
-              CU06 — Gerar Roteiro de Viagem
+              Roteiro de Viagem
             </span>
 
             <h1 className="text-3xl font-bold text-gray-800 mt-2 mb-2">

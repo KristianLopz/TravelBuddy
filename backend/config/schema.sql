@@ -62,11 +62,6 @@ CREATE TABLE IF NOT EXISTS itineraries (
   FOREIGN KEY (destination_id) REFERENCES destinations(id) ON DELETE CASCADE
 );
 
--- Admin inicial. Senha: Admin@123
-INSERT INTO users (name, email, password, role, plan)
-SELECT 'Administrador', 'admin@travelbuddy.com', '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewFkHfTTwLnHceum', 'admin', 'premium'
-WHERE NOT EXISTS (SELECT 1 FROM users WHERE email = 'admin@travelbuddy.com');
-
 -- Destinos iniciais com imagens locais servidas pelo frontend em /public/destinations.
 INSERT INTO destinations (name, country, state, description, estimated_cost, climate, best_season, image_url, tourist_spots)
 SELECT 'Rio de Janeiro', 'Brasil', 'RJ', 'Cidade Maravilhosa com praias famosas, montanhas, vida urbana intensa e pontos turísticos conhecidos no mundo todo.', 2500.00, 'Tropical', 'Abril a outubro', '/destinations/rio-de-janeiro.png', JSON_ARRAY('Cristo Redentor', 'Pão de Açúcar', 'Copacabana', 'Maracanã', 'Jardim Botânico')
