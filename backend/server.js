@@ -100,7 +100,7 @@ async function startServer() {
     const PORT = process.env.PORT || 3000;
     app.listen(PORT, () => console.log(`TravelBuddy API rodando na porta ${PORT}`));
   } catch (error) {
-    console.error('Erro ao iniciar o backend. Verifique a conexão MySQL e aplique o schema com "npx prisma db push".');
+    console.error('Erro ao iniciar o backend. Verifique a conexão PostgreSQL e aplique o schema com "npm run db:push".');
     console.error(error);
     await prisma.$disconnect();
     process.exit(1);

@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -29,9 +29,9 @@ model User {
   role                    UserRole?   @default(user)
   plan                    UserPlan?   @default(free)
   last_budget             Decimal?    @db.Decimal(10, 2)
-  subscription_expires_at DateTime?   @db.DateTime(0)
-  createdAt               DateTime    @default(now()) @db.DateTime(0)
-  updatedAt               DateTime    @updatedAt @db.DateTime(0)
+  subscription_expires_at DateTime?   @db.Timestamp(0)
+  createdAt               DateTime    @default(now()) @db.Timestamp(0)
+  updatedAt               DateTime    @updatedAt @db.Timestamp(0)
   favorites               Favorite[]
   itineraries             Itinerary[]
 
@@ -50,8 +50,8 @@ model Destination {
   image_url        String?     @db.VarChar(500)
   tourist_spots    Json?
   active           Boolean?    @default(true)
-  createdAt        DateTime    @default(now()) @db.DateTime(0)
-  updatedAt        DateTime    @updatedAt @db.DateTime(0)
+  createdAt        DateTime    @default(now()) @db.Timestamp(0)
+  updatedAt        DateTime    @updatedAt @db.Timestamp(0)
   favorites        Favorite[]
   itineraries      Itinerary[]
 
@@ -66,13 +66,13 @@ model Favorite {
   budget_value   Decimal?    @db.Decimal(10, 2)
   budget_days    Int?
   budget_people  Int?
-  createdAt      DateTime    @default(now()) @db.DateTime(0)
-  updatedAt      DateTime    @updatedAt @db.DateTime(0)
+  createdAt      DateTime    @default(now()) @db.Timestamp(0)
+  updatedAt      DateTime    @updatedAt @db.Timestamp(0)
   user           User        @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
   destination    Destination @relation(fields: [destination_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
   @@unique([user_id, destination_id], map: "unique_favorite")
-  @@index([destination_id], map: "destination_id")
+  @@index([destination_id], map: "favorites_destination_id_idx")
   @@map("favorites")
 }
 
@@ -85,12 +85,12 @@ model Itinerary {
   budget               Decimal     @db.Decimal(10, 2)
   activities           Json?
   total_estimated_cost Decimal?    @db.Decimal(10, 2)
-  createdAt            DateTime    @default(now()) @db.DateTime(0)
-  updatedAt            DateTime    @updatedAt @db.DateTime(0)
+  createdAt            DateTime    @default(now()) @db.Timestamp(0)
+  updatedAt            DateTime    @updatedAt @db.Timestamp(0)
   user                 User        @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
   destination          Destination @relation(fields: [destination_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
   @@unique([user_id, destination_id, duration_days, num_people], map: "unique_itinerary")
-  @@index([destination_id], map: "destination_id")
+  @@index([destination_id], map: "itineraries_destination_id_idx")
   @@map("itineraries")
 }
